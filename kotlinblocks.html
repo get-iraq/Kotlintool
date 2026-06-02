@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>KotlinBlocks v2 — مصمم Compose البصري</title>
+<!-- CodeMirror 5 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Tajawal:wght@300;400;500;700;900&display=swap');
+
+  :root {
+    --bg: #0d0f14;
+    --surface: #13161e;
+    --surface2: #1a1e2a;
+    --surface3: #222738;
+    --border: #2a2f42;
+    --accent: #7c6af7;
+    --accent2: #4fd1a5;
+    --accent3: #f7a26a;
+    --accent4: #f76a8a;
+    --text: #e8eaf2;
+    --text2: #8b90a8;
+    --text3: #555a72;
+    --code-bg: #0a0c10;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'Tajawal', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    display: flex; align-items: center;
+    padding: 0 10px; height: 52px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    gap: 6px; flex-shrink: 0; z-index: 100;
+  }
+  .logo {
+    font-weight: 900; font-size: 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: -0.5px; white-space: nowrap;
+  }
+  .logo span { font-family: 'IBM Plex Mono'; font-weight: 600; }
+  .logo .ver { font-size: 9px; background: var(--accent); color:#fff; -webkit-text-fill-color:#fff; padding: 1px 5px; border-radius: 6px; vertical-align: middle; margin-right: 3px; }
+  .topbar-actions { display: flex; gap: 5px; margin-right: auto; }
+  .btn-icon {
+    width: 34px; height: 34px; border-radius: 10px;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text2); font-size: 15px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s; flex-shrink: 0;
+  }
+  .btn-icon:active { transform: scale(.92); background: var(--surface3); }
+  .btn-icon.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .project-name {
+    font-size: 12px; font-weight: 700; color: var(--text2);
+    cursor: pointer; padding: 4px 8px; border-radius: 8px;
+    border: 1px solid transparent; transition: all .15s;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;
+  }
+  .project-name:active { background: var(--surface2); border-color: var(--border); }
+
+  /* ── TAB BAR ── */
+  .tabbar { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .tab {
+    flex: 1; padding: 9px 2px; font-size: 10px; font-weight: 700; color: var(--text3);
+    cursor: pointer; text-align: center; border-bottom: 2px solid transparent;
+    transition: all .15s; display: flex; align-items: center; justify-content: center; gap: 3px;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-icon { font-size: 13px; }
+
+  /* ── MAIN ── */
+  .main { flex: 1; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+  .panel { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+  .panel.active { display: flex; }
+
+  /* ── BLOCK EDITOR ── */
+  .block-editor { display: flex; flex: 1; overflow: hidden; }
+
+  .palette {
+    width: 70px; background: var(--surface); border-left: 1px solid var(--border);
+    overflow-y: auto; flex-shrink: 0; padding: 6px 3px;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .palette::-webkit-scrollbar { display: none; }
+  .palette-group { display: flex; flex-direction: column; gap: 3px; }
+  .palette-label { font-size: 7.5px; font-weight: 700; color: var(--text3); text-align: center; padding: 4px 0 2px; letter-spacing: .5px; text-transform: uppercase; }
+  .palette-block {
+    border-radius: 9px; padding: 5px 3px; font-size: 8.5px; font-weight: 700;
+    text-align: center; cursor: grab; transition: transform .1s, opacity .1s;
+    line-height: 1.3; border: 1.5px solid transparent;
+  }
+  .palette-block:active { transform: scale(.93); opacity: .8; }
+  .pb-ui    { background: rgba(124,106,247,.18); border-color: rgba(124,106,247,.4); color: #a89ef7; }
+  .pb-layout{ background: rgba(79,209,165,.18);  border-color: rgba(79,209,165,.4);  color: #6de0b8; }
+  .pb-state { background: rgba(247,162,106,.18); border-color: rgba(247,162,106,.4); color: #f7bb88; }
+  .pb-event { background: rgba(247,106,138,.18); border-color: rgba(247,106,138,.4); color: #f792a8; }
+  .pb-logic { background: rgba(106,180,247,.18); border-color: rgba(106,180,247,.4); color: #8dc8f7; }
+  .pb-custom{ background: rgba(201,106,247,.18); border-color: rgba(201,106,247,.4); color: #d892f7; }
+
+  .canvas-area {
+    flex: 1; overflow: auto; position: relative; padding: 12px;
+    background-image: linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .canvas-area::-webkit-scrollbar { width: 4px; height: 4px; }
+  .canvas-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .canvas-hint {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    text-align: center; color: var(--text3); font-size: 12px; pointer-events: none; line-height: 1.8;
+  }
+  .canvas-hint .icon { font-size: 38px; display: block; margin-bottom: 8px; opacity: .4; }
+
+  /* ── BLOCKS ON CANVAS ── */
+  .block-container { display: flex; flex-direction: column; gap: 5px; }
+  .block-item {
+    border-radius: 12px; padding: 0; overflow: hidden;
+    border: 1.5px solid transparent;
+    box-shadow: 0 4px 14px rgba(0,0,0,.3);
+    transition: border-color .15s, opacity .15s, transform .15s;
+    cursor: pointer; position: relative;
+  }
+  .block-item.selected { border-color: var(--accent) !important; }
+  .block-item.has-children { padding-bottom: 8px; }
+  /* drag-reorder states */
+  .block-item.dragging-canvas { opacity: .45; transform: scale(.97); }
+  .block-item.drop-above { border-top: 2px solid var(--accent2) !important; }
+  .block-item.drop-below { border-bottom: 2px solid var(--accent2) !important; }
+
+  .block-header {
+    display: flex; align-items: center; gap: 7px;
+    padding: 9px 11px; font-size: 11px; font-weight: 700;
+  }
+  .block-icon { font-size: 15px; flex-shrink: 0; }
+  .block-name { flex: 1; font-size: 11px; }
+  .block-badge { font-size: 8px; padding: 2px 5px; border-radius: 20px; font-weight: 700; background: rgba(255,255,255,.1); }
+  .block-del {
+    width: 21px; height: 21px; border-radius: 6px;
+    background: rgba(247,106,138,.2); border: none; color: #f76a8a;
+    font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .block-move {
+    width: 21px; height: 21px; border-radius: 6px;
+    background: rgba(255,255,255,.07); border: none; color: var(--text3);
+    font-size: 13px; cursor: grab; display: flex; align-items: center; justify-content: center;
+    touch-action: none;
+  }
+  .block-params { padding: 0 11px 9px; display: flex; flex-wrap: wrap; gap: 5px; }
+  .param-chip {
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1);
+    border-radius: 20px; padding: 3px 9px; font-size: 9.5px; color: var(--text2);
+    cursor: pointer; display: flex; align-items: center; gap: 3px;
+  }
+  .param-key { color: var(--text3); font-size: 8.5px; }
+  .param-val { font-weight: 700; }
+
+  .block-children {
+    margin: 3px 7px 0; border-radius: 8px; background: rgba(0,0,0,.2);
+    min-height: 38px; padding: 5px; border: 1.5px dashed rgba(255,255,255,.07); position: relative;
+  }
+  .block-children.drag-over { border-color: var(--accent); background: rgba(124,106,247,.07); }
+  .block-children-hint { font-size: 9.5px; color: var(--text3); text-align: center; padding: 7px; }
+
+  .bk-ui    { background: rgba(124,106,247,.12); border-color: rgba(124,106,247,.25); }
+  .bk-layout{ background: rgba(79,209,165,.12);  border-color: rgba(79,209,165,.25);  }
+  .bk-state { background: rgba(247,162,106,.12); border-color: rgba(247,162,106,.25); }
+  .bk-event { background: rgba(247,106,138,.12); border-color: rgba(247,106,138,.25); }
+  .bk-logic { background: rgba(106,180,247,.12); border-color: rgba(106,180,247,.25); }
+  .bk-custom{ background: rgba(201,106,247,.12); border-color: rgba(201,106,247,.25); }
+
+  .bh-ui    { background: rgba(124,106,247,.25); color: #c0b7fb; }
+  .bh-layout{ background: rgba(79,209,165,.25);  color: #6de0b8; }
+  .bh-state { background: rgba(247,162,106,.25); color: #f7c096; }
+  .bh-event { background: rgba(247,106,138,.25); color: #f799b2; }
+  .bh-logic { background: rgba(106,180,247,.25); color: #8dc8f7; }
+  .bh-custom{ background: rgba(201,106,247,.25); color: #d892f7; }
+
+  /* ── CODE PANEL (CodeMirror) ── */
+  .code-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .code-toolbar {
+    display: flex; align-items: center; padding: 7px 11px; gap: 7px;
+    background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .code-toolbar-label { font-size: 11px; font-weight: 700; color: var(--text2); flex: 1; font-family: 'IBM Plex Mono'; min-width: 80px; }
+  .cm-wrapper { flex: 1; overflow: hidden; position: relative; }
+  .CodeMirror {
+    height: 100% !important; font-size: 12px !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    line-height: 1.7 !important; background: #282a36 !important;
+  }
+  .CodeMirror-scroll { height: 100% !important; }
+  .CodeMirror-gutters { background: #1e2029 !important; border-right: 1px solid #3a3d52 !important; }
+  .CodeMirror-linenumber { color: #555a72 !important; font-size: 10px !important; }
+
+  .btn-small {
+    padding: 5px 9px; border-radius: 8px; font-size: 10.5px; font-weight: 700;
+    cursor: pointer; border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text2); transition: all .15s; font-family: 'Tajawal'; white-space: nowrap;
+  }
+  .btn-small:active { transform: scale(.95); }
+  .btn-small.accent { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-small.green  { background: var(--accent2); color: #0d1a13; border-color: var(--accent2); }
+
+  /* ── PREVIEW ── */
+  .preview-panel { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  .preview-scroll { flex: 1; overflow-y: auto; }
+  .preview-scroll::-webkit-scrollbar { display: none; }
+  .phone-frame {
+    width: 275px; margin: 14px auto; border-radius: 34px;
+    border: 2px solid var(--border); background: #1a1a2e; overflow: hidden;
+    box-shadow: 0 18px 55px rgba(0,0,0,.5); position: relative;
+  }
+  .phone-notch { width: 78px; height: 5px; background: var(--border); border-radius: 3px; margin: 9px auto 0; }
+  .phone-screen { margin: 7px; border-radius: 22px; background: #1C1B1F; min-height: 400px; overflow: hidden; font-family: 'Tajawal'; }
+  .preview-topbar { background: #6650A4; padding: 11px 14px 7px; color: #fff; font-size: 17px; font-weight: 700; }
+  .preview-content { padding: 11px; display: flex; flex-direction: column; gap: 9px; }
+  .preview-empty { text-align: center; color: rgba(255,255,255,.3); font-size: 11px; padding: 36px 14px; }
+
+  /* preview elements */
+  .preview-card { background: #2D2C37; border-radius: 12px; padding: 12px; color: #E6E1E5; font-size: 12px; }
+  .preview-btn  { background: #6650A4; border-radius: 20px; padding: 9px 18px; color: #fff; font-size: 12px; font-weight: 700; text-align: center; }
+  .preview-text { color: #E6E1E5; font-size: 12px; }
+  .preview-row  { display: flex; gap: 7px; flex-wrap: wrap; }
+  .preview-textfield { background: #2D2C37; border-radius: 8px 8px 0 0; padding: 10px; color: #ccc; font-size: 11px; border-bottom: 2px solid #6650A4; flex: 1; }
+  .preview-chip { background: rgba(102,80,164,.2); border: 1px solid #6650A4; border-radius: 20px; padding: 3px 10px; color: #CCC2DC; font-size: 10px; display: inline-block; }
+  .preview-fab  { width: 44px; height: 44px; background: #6650A4; border-radius: 14px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; box-shadow: 0 4px 12px rgba(102,80,164,.4); }
+  .preview-row-end { display: flex; justify-content: flex-end; }
+  .preview-custom-block { border-radius: 10px; padding: 10px; font-size: 11px; }
+  .preview-switch-row { display: flex; align-items: center; justify-content: space-between; color: #E6E1E5; font-size: 12px; }
+  .preview-switch-thumb { width: 34px; height: 18px; border-radius: 9px; position: relative; transition: background .2s; }
+  .preview-image-placeholder { background: #2D2C37; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.3); font-size: 20px; }
+
+  /* ── PROJECTS ── */
+  .projects-panel { flex: 1; overflow-y: auto; padding: 11px; }
+  .projects-panel::-webkit-scrollbar { display: none; }
+  .projects-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding: 0 3px; gap: 6px; flex-wrap: wrap; }
+  .projects-title { font-size: 14px; font-weight: 900; }
+  .projects-actions { display: flex; gap: 5px; }
+  .project-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 13px; margin-bottom: 9px; cursor: pointer; transition: all .15s; position: relative; overflow: hidden;
+  }
+  .project-card::before { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 3px; }
+  .project-card.active-project::before { background: var(--accent); }
+  .project-card:active { transform: scale(.98); background: var(--surface2); }
+  .project-card-name { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+  .project-card-meta { font-size: 10px; color: var(--text3); display: flex; gap: 8px; flex-wrap: wrap; }
+  .project-card-actions { position: absolute; top: 9px; left: 9px; display: flex; gap: 3px; }
+  .project-action-btn {
+    width: 26px; height: 26px; border-radius: 7px; background: var(--surface2);
+    border: 1px solid var(--border); color: var(--text2); font-size: 11px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s;
+  }
+  .project-action-btn:active { transform: scale(.9); }
+  .project-action-btn.del { color: var(--accent4); }
+
+  /* ── CUSTOM PANEL ── */
+  .custom-panel { flex: 1; overflow-y: auto; padding: 11px; }
+  .custom-panel::-webkit-scrollbar { display: none; }
+  .section-title { font-size: 12px; font-weight: 900; color: var(--text2); margin-bottom: 9px; padding: 0 3px; display: flex; align-items: center; gap: 5px; }
+  .form-group { margin-bottom: 11px; }
+  .form-label { font-size: 10.5px; font-weight: 700; color: var(--text2); margin-bottom: 5px; display: block; }
+  .form-input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 9px; padding: 9px 11px; color: var(--text); font-size: 11.5px;
+    font-family: 'Tajawal'; outline: none; transition: border-color .15s;
+    -webkit-text-fill-color: var(--text);
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-input::placeholder { color: var(--text3); }
+  .form-select {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 9px; padding: 9px 11px; color: var(--text); font-size: 11.5px;
+    font-family: 'Tajawal'; outline: none; cursor: pointer; appearance: none;
+    -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23555a72' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: left 10px center;
+  }
+  .form-select:focus { border-color: var(--accent); }
+  .color-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+  .color-btn { height: 30px; border-radius: 7px; border: 2px solid transparent; cursor: pointer; transition: all .15s; }
+  .color-btn.selected { border-color: #fff; transform: scale(1.1); }
+  .color-btn:active { transform: scale(.95); }
+  .custom-blocks-list { margin-top: 10px; }
+  .custom-block-item { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 11px; margin-bottom: 7px; display: flex; align-items: center; gap: 9px; }
+  .custom-block-icon { font-size: 19px; flex-shrink: 0; }
+  .custom-block-info { flex: 1; }
+  .custom-block-name { font-size: 12px; font-weight: 700; }
+  .custom-block-type { font-size: 9.5px; color: var(--text3); margin-top: 2px; }
+
+  /* ── PARAM SMART FIELDS ── */
+  .smart-select {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 9px; padding: 8px 11px; color: var(--text); font-size: 11.5px;
+    font-family: 'Tajawal'; outline: none; cursor: pointer; appearance: none;
+    -webkit-appearance: none;
+  }
+  .smart-select:focus { border-color: var(--accent); }
+  .param-field-wrap { position: relative; margin-bottom: 8px; }
+  .param-field-label { font-size: 10px; font-weight: 700; color: var(--text3); margin-bottom: 3px; display: block; }
+
+  /* ── MODALS ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.72); backdrop-filter: blur(4px);
+    z-index: 1000; display: flex; align-items: flex-end;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal-sheet {
+    background: var(--surface); border-radius: 20px 20px 0 0; padding: 15px;
+    width: 100%; max-height: 80dvh; overflow-y: auto;
+    transform: translateY(100%); transition: transform .25s cubic-bezier(.34,1.56,.64,1);
+  }
+  .modal-overlay.open .modal-sheet { transform: translateY(0); }
+  .modal-handle { width: 38px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 14px; }
+  .modal-title { font-size: 15px; font-weight: 900; margin-bottom: 14px; }
+
+  /* ── FAB ── */
+  .fab {
+    position: fixed; bottom: 18px; left: 14px;
+    width: 50px; height: 50px; border-radius: 15px;
+    background: linear-gradient(135deg, var(--accent), #5a48d4);
+    border: none; color: #fff; font-size: 20px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 7px 22px rgba(124,106,247,.4); transition: all .2s; z-index: 50;
+  }
+  .fab:active { transform: scale(.9); }
+
+  /* ── DRAG GHOST ── */
+  .drag-ghost {
+    position: fixed; pointer-events: none; z-index: 9999;
+    opacity: .85; transform: rotate(3deg) scale(1.05);
+    border-radius: 10px; padding: 7px 11px; font-size: 10px; font-weight: 700; display: none;
+  }
+
+  /* ── TOGGLE ── */
+  .toggle-row { display: flex; gap: 5px; flex-wrap: wrap; }
+  .toggle-btn {
+    padding: 5px 11px; border-radius: 20px; font-size: 10.5px; font-weight: 700;
+    cursor: pointer; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text2); transition: all .15s;
+  }
+  .toggle-btn.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .toggle-btn:active { transform: scale(.95); }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; bottom: 18px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 9px 18px; font-size: 11.5px; font-weight: 700;
+    z-index: 2000; transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+    white-space: nowrap; box-shadow: 0 7px 22px rgba(0,0,0,.4);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: var(--accent2); color: var(--accent2); }
+  .toast.error   { border-color: var(--accent4); color: var(--accent4); }
+
+  .divider { height: 1px; background: var(--border); margin: 8px 0; }
+  .mt8 { margin-top: 8px; }
+  .flex-end { display: flex; justify-content: flex-end; }
+
+  /* ── HIDDEN FILE INPUT ── */
+  #importFileInput { display: none; }
+
+  /* live preview badge */
+  .live-badge {
+    font-size: 8px; background: var(--accent2); color: #0d1a13;
+    padding: 1px 5px; border-radius: 5px; font-weight: 900; letter-spacing: .3px;
+    display: inline-block; vertical-align: middle; margin-right: 4px;
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo"><span>K</span>Blocks<span class="ver">v2</span></div>
+  <div class="project-name" id="currentProjectName" onclick="showTab('projects')">مشروع جديد</div>
+  <div class="topbar-actions">
+    <button class="btn-icon primary" onclick="generateAndShowCode()" title="توليد الكود">⚡</button>
+    <button class="btn-icon" onclick="saveCurrentProject()" title="حفظ">💾</button>
+    <button class="btn-icon" onclick="newProject()" title="مشروع جديد">📁</button>
+  </div>
+</div>
+
+<!-- TAB BAR -->
+<div class="tabbar">
+  <div class="tab active" id="tab-blocks" onclick="showTab('blocks')"><span class="tab-icon">🧩</span>بلوكات</div>
+  <div class="tab" id="tab-code" onclick="showTab('code')"><span class="tab-icon">💻</span>كود</div>
+  <div class="tab" id="tab-preview" onclick="showTab('preview')"><span class="tab-icon">📱</span>معاينة</div>
+  <div class="tab" id="tab-projects" onclick="showTab('projects')"><span class="tab-icon">📂</span>مشاريع</div>
+  <div class="tab" id="tab-custom" onclick="showTab('custom')"><span class="tab-icon">🔧</span>مخصص</div>
+</div>
+
+<!-- MAIN PANELS -->
+<div class="main">
+
+  <!-- BLOCKS PANEL -->
+  <div class="panel active" id="panel-blocks">
+    <div class="block-editor">
+      <div class="palette">
+        <div class="palette-group">
+          <div class="palette-label">واجهة</div>
+          <div class="palette-block pb-ui" draggable="true" data-block="Text">Aa<br>نص</div>
+          <div class="palette-block pb-ui" draggable="true" data-block="Button">▶<br>زر</div>
+          <div class="palette-block pb-ui" draggable="true" data-block="TextField">✏️<br>حقل</div>
+          <div class="palette-block pb-ui" draggable="true" data-block="Card">🃏<br>كارد</div>
+          <div class="palette-block pb-ui" draggable="true" data-block="Image">🖼<br>صورة</div>
+          <div class="palette-block pb-ui" draggable="true" data-block="TopAppBar">📌<br>شريط</div>
+          <div class="palette-block pb-ui" draggable="true" data-block="FAB">➕<br>FAB</div>
+          <div class="palette-block pb-ui" draggable="true" data-block="Chip">🏷<br>شريحة</div>
+          <div class="palette-block pb-ui" draggable="true" data-block="Divider">—<br>فاصل</div>
+          <div class="palette-block pb-ui" draggable="true" data-block="Switch">🔘<br>مفتاح</div>
+        </div>
+        <div class="palette-group">
+          <div class="palette-label">تخطيط</div>
+          <div class="palette-block pb-layout" draggable="true" data-block="Column">║<br>عمود</div>
+          <div class="palette-block pb-layout" draggable="true" data-block="Row">═<br>صف</div>
+          <div class="palette-block pb-layout" draggable="true" data-block="Box">▪<br>صندوق</div>
+          <div class="palette-block pb-layout" draggable="true" data-block="Spacer">↕<br>مسافة</div>
+          <div class="palette-block pb-layout" draggable="true" data-block="LazyColumn">📜<br>قائمة</div>
+        </div>
+        <div class="palette-group">
+          <div class="palette-label">حالة</div>
+          <div class="palette-block pb-state" draggable="true" data-block="remember">💾<br>تذكر</div>
+          <div class="palette-block pb-state" draggable="true" data-block="mutableStateOf">🔄<br>حالة</div>
+          <div class="palette-block pb-state" draggable="true" data-block="LaunchedEffect">🚀<br>تأثير</div>
+          <div class="palette-block pb-state" draggable="true" data-block="ViewModel">🧠<br>VM</div>
+        </div>
+        <div class="palette-group">
+          <div class="palette-label">أحداث</div>
+          <div class="palette-block pb-event" draggable="true" data-block="onClick">👆<br>نقر</div>
+          <div class="palette-block pb-event" draggable="true" data-block="onValueChange">✏<br>تغيير</div>
+          <div class="palette-block pb-event" draggable="true" data-block="navigate">🔀<br>انتقال</div>
+        </div>
+        <div class="palette-group">
+          <div class="palette-label">منطق</div>
+          <div class="palette-block pb-logic" draggable="true" data-block="if">❓<br>شرط</div>
+          <div class="palette-block pb-logic" draggable="true" data-block="forEach">🔁<br>تكرار</div>
+          <div class="palette-block pb-logic" draggable="true" data-block="when">🔀<br>عندما</div>
+        </div>
+        <div id="customPaletteGroup" class="palette-group">
+          <div class="palette-label">مخصص</div>
+        </div>
+      </div>
+      <div class="canvas-area" id="canvas"
+           ondragover="handleDragOver(event)"
+           ondrop="handleCanvasDrop(event)">
+        <div class="canvas-hint" id="canvasHint">
+          <span class="icon">🧩</span>
+          اسحب البلوكات من اليمين<br>وأفلتها هنا لبناء واجهتك
+        </div>
+        <div class="block-container" id="blockContainer"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CODE PANEL (CodeMirror) -->
+  <div class="panel" id="panel-code">
+    <div class="code-panel">
+      <div class="code-toolbar">
+        <span class="code-toolbar-label" id="codeFileName">MainScreen.kt</span>
+        <button class="btn-small" onclick="copyCode()">📋 نسخ</button>
+        <button class="btn-small accent" onclick="refreshCode()">🔄 تحديث</button>
+      </div>
+      <div class="cm-wrapper" id="cmWrapper"></div>
+    </div>
+  </div>
+
+  <!-- PREVIEW PANEL -->
+  <div class="panel" id="panel-preview">
+    <div class="preview-panel">
+      <div class="preview-scroll">
+        <div style="text-align:center;padding:6px 0 0;font-size:10px;color:var(--text3);">
+          <span class="live-badge">LIVE</span> معاينة حية • تتحدث تلقائياً
+        </div>
+        <div class="phone-frame">
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+            <div class="preview-topbar" id="previewTopbar">تطبيقي</div>
+            <div class="preview-content" id="previewContent">
+              <div class="preview-empty">أضف بلوكات لترى المعاينة 👆</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROJECTS PANEL -->
+  <div class="panel" id="panel-projects">
+    <div class="projects-panel">
+      <div class="projects-header">
+        <span class="projects-title">📂 المشاريع</span>
+        <div class="projects-actions">
+          <button class="btn-small" onclick="document.getElementById('importFileInput').click()">📥 استيراد</button>
+          <button class="btn-small accent" onclick="newProject()">+ جديد</button>
+        </div>
+      </div>
+      <input type="file" id="importFileInput" accept=".kb,.json" onchange="importProject(event)">
+      <div id="projectsList"></div>
+    </div>
+  </div>
+
+  <!-- CUSTOM BLOCKS PANEL -->
+  <div class="panel" id="panel-custom">
+    <div class="custom-panel">
+      <div class="section-title">🔧 إنشاء بلوك مخصص</div>
+      <div class="form-group">
+        <label class="form-label">اسم البلوك (بالإنجليزية)</label>
+        <input class="form-input" id="customName" placeholder="مثال: MyButton" dir="ltr">
+      </div>
+      <div class="form-group">
+        <label class="form-label">الوصف</label>
+        <input class="form-input" id="customDesc" placeholder="وصف قصير للبلوك">
+      </div>
+      <div class="form-group">
+        <label class="form-label">الأيقونة</label>
+        <input class="form-input" id="customIcon" placeholder="🔮" maxlength="2">
+      </div>
+      <div class="form-group">
+        <label class="form-label">لون البلوك</label>
+        <div class="color-grid">
+          <div class="color-btn selected" style="background:#7c6af7" data-color="custom-a" onclick="selectColor(this,'custom-a')"></div>
+          <div class="color-btn" style="background:#4fd1a5" data-color="custom-b" onclick="selectColor(this,'custom-b')"></div>
+          <div class="color-btn" style="background:#f7a26a" data-color="custom-c" onclick="selectColor(this,'custom-c')"></div>
+          <div class="color-btn" style="background:#f76a8a" data-color="custom-d" onclick="selectColor(this,'custom-d')"></div>
+          <div class="color-btn" style="background:#6ab4f7" data-color="custom-e" onclick="selectColor(this,'custom-e')"></div>
+          <div class="color-btn" style="background:#c96af7" data-color="custom-f" onclick="selectColor(this,'custom-f')"></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">قالب الكود (Kotlin)</label>
+        <textarea class="form-input" id="customCode" rows="5"
+          placeholder="@Composable&#10;fun MyButton(text: String, onClick: () -> Unit) {&#10;    Button(onClick = onClick) {&#10;        Text(text)&#10;    }&#10;}" dir="ltr" style="resize:vertical;min-height:90px;font-family:'IBM Plex Mono';font-size:10.5px;"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">المعاملات (افصل بفاصلة)</label>
+        <input class="form-input" id="customParams" placeholder="text, onClick, modifier" dir="ltr">
+      </div>
+      <div class="form-group">
+        <label class="form-label">🎨 قالب المعاينة (HTML/CSS اختياري)</label>
+        <textarea class="form-input" id="customPreviewHtml" rows="3"
+          placeholder='&lt;div style="background:#6650A4;border-radius:20px;padding:10px;color:#fff;text-align:center"&gt;معاينة الزر&lt;/div&gt;'
+          dir="ltr" style="resize:vertical;min-height:70px;font-family:'IBM Plex Mono';font-size:10px;"></textarea>
+      </div>
+      <button class="btn-small accent" style="width:100%;padding:11px;font-size:12.5px" onclick="createCustomBlock()">✨ إنشاء البلوك</button>
+      <div class="divider mt8"></div>
+      <div class="section-title mt8">🗂 بلوكاتي المخصصة</div>
+      <div id="customBlocksList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- FAB -->
+<button class="fab" id="mainFab" onclick="clearCanvas()">🗑</button>
+
+<!-- DRAG GHOST -->
+<div class="drag-ghost" id="dragGhost"></div>
+
+<!-- PARAM EDITOR MODAL -->
+<div class="modal-overlay" id="paramModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="paramModalTitle">تعديل البلوك</div>
+    <div id="paramModalContent"></div>
+    <div class="flex-end mt8">
+      <button class="btn-small accent" onclick="closeModal('paramModal')">حفظ ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW PROJECT MODAL -->
+<div class="modal-overlay" id="newProjectModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📁 مشروع جديد</div>
+    <div class="form-group">
+      <label class="form-label">اسم المشروع</label>
+      <input class="form-input" id="newProjectName" placeholder="مثال: تطبيق المهام">
+    </div>
+    <div class="form-group">
+      <label class="form-label">اسم الشاشة الرئيسية</label>
+      <input class="form-input" id="newScreenName" placeholder="MainScreen" dir="ltr">
+    </div>
+    <div class="form-group">
+      <label class="form-label">نوع التطبيق</label>
+      <div class="toggle-row" id="appTypeToggle">
+        <div class="toggle-btn selected" data-type="basic" onclick="selectAppType(this)">أساسي</div>
+        <div class="toggle-btn" data-type="mvvm" onclick="selectAppType(this)">MVVM</div>
+        <div class="toggle-btn" data-type="navigation" onclick="selectAppType(this)">متعدد الشاشات</div>
+      </div>
+    </div>
+    <div class="flex-end mt8" style="gap:7px;display:flex;">
+      <button class="btn-small" onclick="closeModal('newProjectModal')">إلغاء</button>
+      <button class="btn-small accent" onclick="confirmNewProject()">إنشاء ✨</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let blocks = [];
+let projects = [];
+let customBlocks = [];
+let currentProject = { name: 'مشروع جديد', screenName: 'MainScreen', type: 'basic' };
+let selectedBlockId = null;
+let dragBlockType = null;       // from palette
+let dragCanvasId = null;        // reorder: id of block being dragged from canvas
+let selectedColor = 'custom-a';
+let selectedAppType = 'basic';
+let blockIdCounter = 1;
+let cmEditor = null;            // CodeMirror instance
+
+// ═══════════════════════════════════════════════════════
+// SMART PARAM OPTIONS (Feature 3: IntelliSense dropdowns)
+// ═══════════════════════════════════════════════════════
+const PARAM_OPTIONS = {
+  verticalArrangement:  ['Top','Bottom','Center','SpaceBetween','SpaceAround','SpaceEvenly'],
+  horizontalAlignment:  ['Start','End','CenterHorizontally'],
+  horizontalArrangement:['Start','End','Center','SpaceBetween','SpaceAround','SpaceEvenly'],
+  verticalAlignment:    ['Top','Bottom','CenterVertically'],
+  contentAlignment:     ['TopStart','TopCenter','TopEnd','CenterStart','Center','CenterEnd','BottomStart','BottomCenter','BottomEnd'],
+  style:                ['displayLarge','displayMedium','displaySmall','headlineLarge','headlineMedium','headlineSmall','titleLarge','titleMedium','titleSmall','bodyLarge','bodyMedium','bodySmall','labelLarge','labelMedium','labelSmall'],
+  shape:                ['None','ExtraSmall','Small','Medium','Large','ExtraLarge','Full'],
+  color:                ['onBackground','onSurface','onSurfaceVariant','primary','secondary','tertiary','error','outline'],
+  containerColor:       ['primaryContainer','secondaryContainer','tertiaryContainer','errorContainer','surfaceVariant'],
+  navigationIcon:       ['none','Back','Menu','Close'],
+  fillMaxSize:          ['true','false'],
+  fillMaxWidth:         ['true','false'],
+  enabled:              ['true','false'],
+  selected:             ['true','false'],
+  checked:              ['true','false'],
+  elseBranch:           ['true','false'],
+};
+
+// ═══════════════════════════════════════════════════════
+// BLOCK DEFINITIONS
+// ═══════════════════════════════════════════════════════
+const BLOCK_DEFS = {
+  Text:        { label:'Text',        icon:'📝', cat:'ui',     params:{text:'مرحباً بك',color:'onBackground',style:'bodyLarge'},         previewType:'text',      hasChildren:false },
+  Button:      { label:'Button',      icon:'🔵', cat:'ui',     params:{text:'اضغط هنا',enabled:'true',shape:'RoundedCorner'},             previewType:'button',    hasChildren:false },
+  TextField:   { label:'TextField',   icon:'✏️', cat:'ui',     params:{label:'أدخل نصاً',placeholder:'',value:'text'},                   previewType:'textfield', hasChildren:false },
+  Card:        { label:'Card',        icon:'🃏', cat:'ui',     params:{elevation:'4',shape:'Medium'},                                     previewType:'card',      hasChildren:true  },
+  Image:       { label:'Image',       icon:'🖼', cat:'ui',     params:{contentDesc:'صورة',size:'100'},                                   previewType:'image',     hasChildren:false },
+  TopAppBar:   { label:'TopAppBar',   icon:'📌', cat:'ui',     params:{title:'تطبيقي',navigationIcon:'none'},                            previewType:'topbar',    hasChildren:false },
+  FAB:         { label:'FAB',         icon:'➕', cat:'ui',     params:{icon:'Add',containerColor:'primaryContainer'},                     previewType:'fab',       hasChildren:false },
+  Chip:        { label:'Chip',        icon:'🏷', cat:'ui',     params:{label:'شريحة',selected:'false'},                                  previewType:'chip',      hasChildren:false },
+  Divider:     { label:'Divider',     icon:'—',  cat:'ui',     params:{thickness:'1',color:'outline'},                                   previewType:'divider',   hasChildren:false },
+  Switch:      { label:'Switch',      icon:'🔘', cat:'ui',     params:{checked:'false',label:'تفعيل'},                                    previewType:'switch',    hasChildren:false },
+  Column:      { label:'Column',      icon:'║',  cat:'layout', params:{verticalArrangement:'Top',horizontalAlignment:'Start',padding:'16'},previewType:'column',    hasChildren:true  },
+  Row:         { label:'Row',         icon:'═',  cat:'layout', params:{horizontalArrangement:'Start',verticalAlignment:'CenterVertically'},previewType:'row',      hasChildren:true  },
+  Box:         { label:'Box',         icon:'▪',  cat:'layout', params:{contentAlignment:'TopStart',fillMaxSize:'false'},                  previewType:'box',       hasChildren:true  },
+  Spacer:      { label:'Spacer',      icon:'↕',  cat:'layout', params:{height:'16',fillMaxWidth:'false'},                                previewType:'spacer',    hasChildren:false },
+  LazyColumn:  { label:'LazyColumn',  icon:'📜', cat:'layout', params:{itemCount:'10',padding:'8'},                                      previewType:'list',      hasChildren:true  },
+  remember:    { label:'remember',    icon:'💾', cat:'state',  params:{varName:'state',initialValue:'""'},                               previewType:'state',     hasChildren:false },
+  mutableStateOf:{ label:'mutableStateOf',icon:'🔄',cat:'state',params:{varName:'count',type:'Int',initialValue:'0'},                   previewType:'state',     hasChildren:false },
+  LaunchedEffect:{ label:'LaunchedEffect',icon:'🚀',cat:'state',params:{key:'Unit',action:'loadData()'},                                previewType:'effect',    hasChildren:false },
+  ViewModel:   { label:'ViewModel',   icon:'🧠', cat:'state',  params:{name:'MainViewModel',repo:'MainRepository'},                      previewType:'vm',        hasChildren:false },
+  onClick:     { label:'onClick',     icon:'👆', cat:'event',  params:{action:'viewModel.handleClick()'},                               previewType:'event',     hasChildren:false },
+  onValueChange:{ label:'onValueChange',icon:'✏',cat:'event', params:{varName:'text',action:'update'},                                  previewType:'event',     hasChildren:false },
+  navigate:    { label:'navigate',    icon:'🔀', cat:'event',  params:{route:'"detail/{id}"'},                                           previewType:'event',     hasChildren:false },
+  if:          { label:'if',          icon:'❓', cat:'logic',  params:{condition:'isLoading',elseBranch:'false'},                        previewType:'logic',     hasChildren:true  },
+  forEach:     { label:'forEach',     icon:'🔁', cat:'logic',  params:{listName:'items',itemVar:'item'},                                 previewType:'logic',     hasChildren:true  },
+  when:        { label:'when',        icon:'🔀', cat:'logic',  params:{expression:'uiState',cases:'Loading, Success, Error'},             previewType:'logic',     hasChildren:false },
+};
+
+// ═══════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════
+function showTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('mainFab').style.display = name === 'blocks' ? 'flex' : 'none';
+  if (name === 'code') renderCode();
+  if (name === 'preview') renderPreview();
+  if (name === 'projects') renderProjectsList();
+  if (name === 'custom') renderCustomBlocksList();
+}
+
+// ═══════════════════════════════════════════════════════
+// CODEMIRROR INIT (Feature 4)
+// ═══════════════════════════════════════════════════════
+function initCodeMirror() {
+  const wrapper = document.getElementById('cmWrapper');
+  const textarea = document.createElement('textarea');
+  textarea.id = 'cmTextarea';
+  wrapper.appendChild(textarea);
+
+  cmEditor = CodeMirror.fromTextArea(textarea, {
+    mode: 'text/x-kotlin',
+    theme: 'dracula',
+    lineNumbers: true,
+    matchBrackets: true,
+    autoCloseBrackets: true,
+    indentUnit: 4,
+    tabSize: 4,
+    indentWithTabs: false,
+    lineWrapping: false,
+    readOnly: false,
+    extraKeys: { Tab: cm => cm.replaceSelection('    ') }
+  });
+
+  // ensure full height
+  setTimeout(() => { cmEditor.refresh(); }, 100);
+}
+
+// ═══════════════════════════════════════════════════════
+// PALETTE DRAG
+// ═══════════════════════════════════════════════════════
+document.querySelectorAll('.palette-block').forEach(el => {
+  el.addEventListener('touchstart', handlePaletteTouchStart, { passive: false });
+  el.addEventListener('dragstart', e => {
+    dragBlockType = e.target.dataset.block;
+    dragCanvasId = null;
+    e.dataTransfer.effectAllowed = 'copy';
+  });
+});
+
+let touchGhost = null;
+
+function handlePaletteTouchStart(e) {
+  e.preventDefault();
+  const blockEl = e.target.closest('.palette-block');
+  if (!blockEl) return;
+  dragBlockType = blockEl.dataset.block;
+  dragCanvasId = null;
+  const def = BLOCK_DEFS[dragBlockType] || customBlocks.find(b => b.name === dragBlockType);
+  const touch = e.touches[0];
+  touchGhost = document.getElementById('dragGhost');
+  touchGhost.textContent = (def?.icon || '📦') + ' ' + dragBlockType;
+  touchGhost.style.cssText = `display:block;position:fixed;top:${touch.clientY-20}px;left:${touch.clientX-40}px;background:var(--accent);color:#fff;padding:7px 11px;border-radius:9px;font-size:10px;font-weight:700;pointer-events:none;z-index:9999;`;
+  document.addEventListener('touchmove', handlePaletteTouchMove, { passive: false });
+  document.addEventListener('touchend', handlePaletteTouchEnd);
+}
+
+function handlePaletteTouchMove(e) {
+  e.preventDefault();
+  const touch = e.touches[0];
+  if (touchGhost) {
+    touchGhost.style.top  = (touch.clientY - 20) + 'px';
+    touchGhost.style.left = (touch.clientX - 40) + 'px';
+  }
+}
+
+function handlePaletteTouchEnd(e) {
+  if (touchGhost) touchGhost.style.display = 'none';
+  document.removeEventListener('touchmove', handlePaletteTouchMove);
+  document.removeEventListener('touchend', handlePaletteTouchEnd);
+  const touch = e.changedTouches[0];
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  const canvas = document.getElementById('canvas');
+  if (canvas && canvas.contains(el) && dragBlockType) {
+    const childArea = el.closest('.block-children');
+    addBlock(dragBlockType, childArea ? childArea.dataset.parent : null);
+  }
+  dragBlockType = null;
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = dragCanvasId ? 'move' : 'copy';
+}
+
+// ═══════════════════════════════════════════════════════
+// CANVAS DROP (palette → canvas)
+// ═══════════════════════════════════════════════════════
+function handleCanvasDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.querySelectorAll('.drop-above,.drop-below').forEach(el => el.classList.remove('drop-above','drop-below'));
+
+  if (dragCanvasId) {
+    // reorder: dropped on canvas root = move to end
+    moveBlockToRoot(dragCanvasId);
+    dragCanvasId = null;
+    return;
+  }
+  if (dragBlockType) {
+    addBlock(dragBlockType, null);
+    dragBlockType = null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// CANVAS BLOCK DRAG REORDER (Feature 2)
+// ═══════════════════════════════════════════════════════
+function startCanvasDrag(e, blockId) {
+  e.stopPropagation();
+  dragCanvasId = blockId;
+  dragBlockType = null;
+  e.dataTransfer.effectAllowed = 'move';
+  const el = e.currentTarget.closest('.block-item');
+  if (el) setTimeout(() => el.classList.add('dragging-canvas'), 0);
+}
+
+function onBlockDragOver(e, blockId) {
+  if (!dragCanvasId || dragCanvasId === blockId) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const el = document.querySelector(`.block-item[data-id="${blockId}"]`);
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const mid  = rect.top + rect.height / 2;
+  document.querySelectorAll('.drop-above,.drop-below').forEach(x => x.classList.remove('drop-above','drop-below'));
+  el.classList.add(e.clientY < mid ? 'drop-above' : 'drop-below');
+}
+
+function onBlockDrop(e, targetId) {
+  if (!dragCanvasId || dragCanvasId === targetId) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const el = document.querySelector(`.block-item[data-id="${targetId}"]`);
+  const rect = el ? el.getBoundingClientRect() : null;
+  const before = rect ? e.clientY < rect.top + rect.height / 2 : true;
+  document.querySelectorAll('.drop-above,.drop-below').forEach(x => x.classList.remove('drop-above','drop-below'));
+
+  // extract dragged block from tree
+  let draggedBlock = null;
+  const extract = (list) => {
+    const idx = list.findIndex(b => b.id === dragCanvasId);
+    if (idx >= 0) { draggedBlock = list.splice(idx, 1)[0]; return true; }
+    return list.some(b => extract(b.children));
+  };
+  extract(blocks);
+  if (!draggedBlock) { dragCanvasId = null; return; }
+
+  // insert relative to target in root list (simplified: root reorder only)
+  const tidx = blocks.findIndex(b => b.id === targetId);
+  if (tidx >= 0) {
+    blocks.splice(before ? tidx : tidx + 1, 0, draggedBlock);
+  } else {
+    blocks.push(draggedBlock);
+  }
+
+  dragCanvasId = null;
+  renderBlocks();
+  updateHint();
+}
+
+function onBlockDragEnd() {
+  dragCanvasId = null;
+  document.querySelectorAll('.dragging-canvas,.drop-above,.drop-below').forEach(el =>
+    el.classList.remove('dragging-canvas','drop-above','drop-below')
+  );
+}
+
+function moveBlockToRoot(id) {
+  let block = null;
+  const extract = (list) => {
+    const idx = list.findIndex(b => b.id === id);
+    if (idx >= 0) { block = list.splice(idx,1)[0]; return true; }
+    return list.some(b => extract(b.children));
+  };
+  extract(blocks);
+  if (block) blocks.push(block);
+  renderBlocks(); updateHint();
+}
+
+// ═══════════════════════════════════════════════════════
+// BLOCK MANAGEMENT
+// ═══════════════════════════════════════════════════════
+function addBlock(type, parentId) {
+  const def = BLOCK_DEFS[type] || customBlocks.find(b => b.name === type);
+  if (!def) return;
+  const block = {
+    id: 'b' + (blockIdCounter++),
+    type,
+    params: def.params ? JSON.parse(JSON.stringify(def.params)) : {},
+    children: [],
+    parentId,
+    isCustom: !!customBlocks.find(b => b.name === type)
+  };
+  if (parentId) {
+    const parent = findBlock(blocks, parentId);
+    if (parent) parent.children.push(block);
+  } else {
+    blocks.push(block);
+  }
+  renderBlocks();
+  updateHint();
+  livePreviewUpdate();
+  showToast('✅ تم إضافة ' + type, 'success');
+}
+
+function findBlock(list, id) {
+  for (const b of list) {
+    if (b.id === id) return b;
+    const f = findBlock(b.children, id);
+    if (f) return f;
+  }
+  return null;
+}
+
+function removeBlock(id) {
+  blocks = removeFromList(blocks, id);
+  if (selectedBlockId === id) selectedBlockId = null;
+  renderBlocks();
+  updateHint();
+  livePreviewUpdate();
+}
+
+function removeFromList(list, id) {
+  return list.filter(b => {
+    if (b.id === id) return false;
+    b.children = removeFromList(b.children, id);
+    return true;
+  });
+}
+
+function selectBlock(id) {
+  selectedBlockId = selectedBlockId === id ? null : id;
+  document.querySelectorAll('.block-item').forEach(el =>
+    el.classList.toggle('selected', el.dataset.id === selectedBlockId)
+  );
+  if (selectedBlockId) openParamEditor(selectedBlockId);
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER BLOCKS
+// ═══════════════════════════════════════════════════════
+function renderBlocks() {
+  document.getElementById('blockContainer').innerHTML = renderBlockList(blocks);
+  attachBlockEvents();
+}
+
+function renderBlockList(list) {
+  return list.map(b => renderBlockEl(b)).join('');
+}
+
+function renderBlockEl(block) {
+  const def = BLOCK_DEFS[block.type] || customBlocks.find(c => c.name === block.type) || {};
+  const cat  = block.isCustom ? 'custom' : (def.cat || 'ui');
+  const icon = def.icon || '📦';
+  const params = block.params || {};
+  const paramChips = Object.entries(params).slice(0,3).map(([k,v]) =>
+    `<div class="param-chip" onclick="event.stopPropagation();openParamEditor('${block.id}')">
+      <span class="param-key">${k}:</span>
+      <span class="param-val">${String(v).substring(0,10)}</span>
+    </div>`).join('');
+  const hasChildren = def.hasChildren;
+  const childrenHtml = hasChildren ? `
+    <div class="block-children" data-parent="${block.id}">
+      ${block.children.length ? renderBlockList(block.children) : '<div class="block-children-hint">📦 أفلت هنا</div>'}
+    </div>` : '';
+  return `
+    <div class="block-item bk-${cat} ${selectedBlockId===block.id?'selected':''} ${hasChildren?'has-children':''}"
+         data-id="${block.id}"
+         draggable="true"
+         ondragstart="startCanvasDrag(event,'${block.id}')"
+         ondragover="onBlockDragOver(event,'${block.id}')"
+         ondrop="onBlockDrop(event,'${block.id}')"
+         ondragend="onBlockDragEnd()"
+         onclick="event.stopPropagation();selectBlock('${block.id}')">
+      <div class="block-header bh-${cat}">
+        <span class="block-icon">${icon}</span>
+        <span class="block-name">${block.type}</span>
+        <span class="block-badge">${cat}</span>
+        <span class="block-move" title="سحب لإعادة الترتيب" onclick="event.stopPropagation()">⠿</span>
+        <button class="block-del" onclick="event.stopPropagation();removeBlock('${block.id}')">✕</button>
+      </div>
+      ${Object.keys(params).length ? `<div class="block-params">${paramChips}</div>` : ''}
+      ${childrenHtml}
+    </div>`;
+}
+
+function attachBlockEvents() {
+  document.querySelectorAll('.block-children').forEach(el => {
+    el.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); el.classList.add('drag-over'); });
+    el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+    el.addEventListener('drop', e => {
+      e.preventDefault(); e.stopPropagation(); el.classList.remove('drag-over');
+      if (dragBlockType) { addBlock(dragBlockType, el.dataset.parent); dragBlockType = null; }
+      else if (dragCanvasId) {
+        let block = null;
+        const extract = (list) => { const i=list.findIndex(b=>b.id===dragCanvasId); if(i>=0){block=list.splice(i,1)[0];return true;} return list.some(b=>extract(b.children)); };
+        extract(blocks);
+        if (block) {
+          const parent = findBlock(blocks, el.dataset.parent);
+          if (parent) parent.children.push(block);
+          dragCanvasId = null; renderBlocks(); updateHint(); livePreviewUpdate();
+        }
+      }
+    });
+  });
+}
+
+function updateHint() {
+  document.getElementById('canvasHint').style.display = blocks.length ? 'none' : 'block';
+}
+
+function clearCanvas() {
+  if (!blocks.length) return;
+  blocks = []; selectedBlockId = null;
+  renderBlocks(); updateHint(); livePreviewUpdate();
+  showToast('🗑 تم مسح الكانفاس', 'success');
+}
+
+// ═══════════════════════════════════════════════════════
+// PARAM EDITOR — SMART DROPDOWNS (Feature 3)
+// ═══════════════════════════════════════════════════════
+function openParamEditor(id) {
+  const block = findBlock(blocks, id);
+  if (!block) return;
+  selectedBlockId = id;
+  document.getElementById('paramModalTitle').textContent = '✏️ تعديل: ' + block.type;
+  const params = block.params || {};
+  let html = '';
+  for (const [key, val] of Object.entries(params)) {
+    const opts = PARAM_OPTIONS[key];
+    if (opts) {
+      // Smart dropdown
+      const options = opts.map(o => `<option value="${o}" ${o===String(val)?'selected':''}>${o}</option>`).join('');
+      html += `<div class="param-field-wrap">
+        <label class="param-field-label">${key}</label>
+        <select class="smart-select" onchange="updateParam('${id}','${key}',this.value);livePreviewUpdate()">
+          ${options}
+        </select>
+      </div>`;
+    } else {
+      html += `<div class="param-field-wrap">
+        <label class="param-field-label">${key}</label>
+        <input class="form-input" dir="auto" value="${String(val).replace(/"/g,'&quot;')}"
+               oninput="updateParam('${id}','${key}',this.value);livePreviewUpdate()"
+               placeholder="${key}">
+      </div>`;
+    }
+  }
+  document.getElementById('paramModalContent').innerHTML = html;
+  openModal('paramModal');
+}
+
+function updateParam(blockId, key, value) {
+  const block = findBlock(blocks, blockId);
+  if (block) block.params[key] = value;
+  // refresh chips in canvas
+  const chipEls = document.querySelectorAll(`.block-item[data-id="${blockId}"] .param-val`);
+  const entries = Object.entries(block.params);
+  chipEls.forEach((el, i) => { if (entries[i]) el.textContent = String(entries[i][1]).substring(0,10); });
+}
+
+// ═══════════════════════════════════════════════════════
+// CODE GENERATION
+// ═══════════════════════════════════════════════════════
+function generateCode() {
+  const screenName = currentProject.screenName || 'MainScreen';
+  const type = currentProject.type || 'basic';
+  const imports = new Set([
+    'import androidx.compose.material3.*',
+    'import androidx.compose.runtime.*',
+    'import androidx.compose.foundation.layout.*',
+    'import androidx.compose.ui.Modifier',
+    'import androidx.compose.ui.unit.dp',
+    'import androidx.compose.runtime.Composable',
+  ]);
+
+  function genBlock(block, indent = '    ') {
+    const p = block.params || {};
+    if (block.isCustom) {
+      const cb = customBlocks.find(c => c.name === block.type);
+      const args = cb ? (cb.paramsList || []).map(x => `${x} = ${x}`).join(', ') : '';
+      return `${indent}${block.type}(${args})`;
+    }
+    const childCode = block.children.length
+      ? '\n' + block.children.map(c => genBlock(c, indent + '    ')).join('\n') + '\n' + indent
+      : '';
+    switch (block.type) {
+      case 'Text':
+        return `${indent}Text(\n${indent}    text = "${p.text||''}",\n${indent}    style = MaterialTheme.typography.${p.style||'bodyLarge'}\n${indent})`;
+      case 'Button':
+        return `${indent}Button(\n${indent}    onClick = { /* TODO */ },\n${indent}    enabled = ${p.enabled||'true'}\n${indent}) {\n${indent}    Text("${p.text||'زر'}")\n${indent}}`;
+      case 'TextField':
+        return `${indent}OutlinedTextField(\n${indent}    value = ${p.value||'text'},\n${indent}    onValueChange = { ${p.value||'text'} = it },\n${indent}    label = { Text("${p.label||''}") }\n${indent})`;
+      case 'Card':
+        return `${indent}Card(\n${indent}    modifier = Modifier.fillMaxWidth(),\n${indent}    elevation = CardDefaults.cardElevation(${p.elevation||'4'}.dp)\n${indent}) {${childCode}}`;
+      case 'Image':
+        return `${indent}// Image: ${p.contentDesc}\n${indent}Box(modifier = Modifier.size(${p.size||'100'}.dp)) { /* صورة */ }`;
+      case 'TopAppBar':
+        return `${indent}@OptIn(ExperimentalMaterial3Api::class)\n${indent}TopAppBar(\n${indent}    title = { Text("${p.title||'تطبيقي'}") }\n${indent})`;
+      case 'FAB':
+        return `${indent}FloatingActionButton(\n${indent}    onClick = { /* TODO */ }\n${indent}) {\n${indent}    Icon(Icons.Default.Add, contentDescription = null)\n${indent}}`;
+      case 'Chip':
+        return `${indent}FilterChip(\n${indent}    selected = ${p.selected||'false'},\n${indent}    onClick = { },\n${indent}    label = { Text("${p.label||'شريحة'}") }\n${indent})`;
+      case 'Divider':
+        return `${indent}HorizontalDivider(thickness = ${p.thickness||'1'}.dp)`;
+      case 'Switch':
+        return `${indent}Row(verticalAlignment = Alignment.CenterVertically) {\n${indent}    Text("${p.label||'تفعيل'}")\n${indent}    Spacer(Modifier.weight(1f))\n${indent}    Switch(checked = ${p.checked||'false'}, onCheckedChange = { })\n${indent}}`;
+      case 'Column':
+        return `${indent}Column(\n${indent}    modifier = Modifier.fillMaxWidth().padding(${p.padding||'16'}.dp),\n${indent}    verticalArrangement = Arrangement.${p.verticalArrangement||'Top'},\n${indent}    horizontalAlignment = Alignment.${p.horizontalAlignment||'Start'}\n${indent}) {${childCode}}`;
+      case 'Row':
+        return `${indent}Row(\n${indent}    modifier = Modifier.fillMaxWidth(),\n${indent}    horizontalArrangement = Arrangement.${p.horizontalArrangement||'Start'},\n${indent}    verticalAlignment = Alignment.${p.verticalAlignment||'CenterVertically'}\n${indent}) {${childCode}}`;
+      case 'Box':
+        return `${indent}Box(\n${indent}    modifier = Modifier${p.fillMaxSize==='true'?'.fillMaxSize()':''},\n${indent}    contentAlignment = Alignment.${p.contentAlignment||'TopStart'}\n${indent}) {${childCode}}`;
+      case 'Spacer':
+        return `${indent}Spacer(modifier = Modifier.height(${p.height||'16'}.dp))`;
+      case 'LazyColumn':
+        return `${indent}LazyColumn(\n${indent}    contentPadding = PaddingValues(${p.padding||'8'}.dp)\n${indent}) {\n${indent}    items(${p.itemCount||'10'}) { index ->\n${indent}        ${block.children.length?block.children.map(c=>genBlock(c,indent+'        ')).join('\n'):'// محتوى'}\n${indent}    }\n${indent}}`;
+      case 'remember':
+        return `${indent}var ${p.varName||'state'} by remember { mutableStateOf(${p.initialValue||'""'}) }`;
+      case 'mutableStateOf':
+        return `${indent}var ${p.varName||'count'} by remember { mutableStateOf<${p.type||'Int'}>(${p.initialValue||'0'}) }`;
+      case 'LaunchedEffect':
+        return `${indent}LaunchedEffect(${p.key||'Unit'}) {\n${indent}    ${p.action||'loadData()'}\n${indent}}`;
+      case 'ViewModel':
+        return `${indent}val viewModel: ${p.name||'MainViewModel'} = viewModel()`;
+      case 'onClick':   return `${indent}// onClick -> ${p.action||''}`;
+      case 'onValueChange': return `${indent}// onValueChange -> ${p.varName||'text'}`;
+      case 'navigate':  return `${indent}navController.navigate(${p.route||'"detail"'})`;
+      case 'if':
+        return `${indent}if (${p.condition||'condition'}) {\n${childCode}${indent}}${p.elseBranch==='true'?` else {\n${indent}    // else\n${indent}}`:''}`;
+      case 'forEach':
+        return `${indent}${p.listName||'items'}.forEach { ${p.itemVar||'item'} ->\n${childCode}${indent}}`;
+      case 'when':
+        return `${indent}when (${p.expression||'state'}) {\n${indent}    // ${p.cases||''}\n${indent}}`;
+      default:
+        return `${indent}// ${block.type}`;
+    }
+  }
+
+  const bodyCode = blocks.map(b => genBlock(b, '    ')).join('\n\n') || '    // أضف بلوكات لتوليد الكود';
+  let vmCode = '';
+  if (type === 'mvvm') {
+    vmCode = `\n\n// ═══ ViewModel ═══\nclass ${screenName}ViewModel : ViewModel() {\n    private val _uiState = MutableStateFlow<UiState>(UiState.Loading)\n    val uiState: StateFlow<UiState> = _uiState.asStateFlow()\n\n    fun loadData() {\n        viewModelScope.launch { _uiState.value = UiState.Success }\n    }\n}\n\nsealed class UiState {\n    object Loading : UiState()\n    object Success : UiState()\n    data class Error(val message: String) : UiState()\n}`;
+  }
+  return `package com.example.app\n\n${Array.from(imports).sort().join('\n')}\nimport androidx.compose.ui.Alignment\nimport androidx.compose.foundation.layout.Arrangement\nimport androidx.compose.foundation.layout.PaddingValues\n\n// ═══════════════════════════════════════\n// Generated by KotlinBlocks v2 ⚡\n// Screen: ${screenName}\n// ═══════════════════════════════════════\n\n@Composable\nfun ${screenName}() {\n${bodyCode}\n}${vmCode}`;
+}
+
+function generateAndShowCode() {
+  const code = generateCode();
+  if (cmEditor) { cmEditor.setValue(code); cmEditor.refresh(); }
+  document.getElementById('codeFileName').textContent = (currentProject.screenName||'MainScreen') + '.kt';
+  showToast('⚡ تم توليد الكود!', 'success');
+}
+
+function renderCode() {
+  const code = generateCode();
+  if (!cmEditor) {
+    initCodeMirror();
+    setTimeout(() => { cmEditor.setValue(code); cmEditor.refresh(); }, 150);
+  } else {
+    cmEditor.setValue(code); cmEditor.refresh();
+  }
+  document.getElementById('codeFileName').textContent = (currentProject.screenName||'MainScreen') + '.kt';
+}
+
+function refreshCode() { generateAndShowCode(); showTab('code'); }
+
+function copyCode() {
+  const text = cmEditor ? cmEditor.getValue() : '';
+  navigator.clipboard?.writeText(text).then(() => showToast('📋 تم نسخ الكود!','success'))
+    .catch(() => showToast('تعذر النسخ','error'));
+}
+
+// ═══════════════════════════════════════════════════════
+// LIVE PREVIEW — DYNAMIC (Feature 1)
+// ═══════════════════════════════════════════════════════
+function livePreviewUpdate() {
+  if (document.getElementById('panel-preview').classList.contains('active')) renderPreview();
+}
+
+function renderPreview() {
+  const topbar = blocks.find(b => b.type === 'TopAppBar');
+  const title = topbar?.params?.title || currentProject.name || 'تطبيقي';
+  document.getElementById('previewTopbar').textContent = title;
+
+  const visibleBlocks = blocks.filter(b => b.type !== 'TopAppBar');
+  const content = document.getElementById('previewContent');
+  if (!visibleBlocks.length) {
+    content.innerHTML = '<div class="preview-empty">أضف بلوكات لترى المعاينة 👆</div>';
+    return;
+  }
+  content.innerHTML = visibleBlocks.map(renderPreviewBlock).join('');
+}
+
+function renderPreviewBlock(block) {
+  const p = block.params || {};
+
+  // Custom blocks with HTML preview template (Feature 5)
+  if (block.isCustom) {
+    const cb = customBlocks.find(c => c.name === block.type);
+    if (cb && cb.previewHtml) {
+      let html = cb.previewHtml;
+      // Replace {{paramName}} with actual values
+      Object.entries(p).forEach(([k,v]) => { html = html.replace(new RegExp(`{{${k}}}`,'g'), v); });
+      return `<div class="preview-custom-block">${html}</div>`;
+    }
+    return `<div style="border:1px dashed rgba(201,106,247,.4);border-radius:8px;padding:8px;font-size:10px;color:rgba(201,106,247,.8);">${cb?.icon||'🔮'} ${block.type}</div>`;
+  }
+
+  // ── Dynamic rendering using actual param values ──
+  switch (block.type) {
+    case 'Text': {
+      const sizeMap = {displayLarge:'22px',displayMedium:'20px',displaySmall:'18px',headlineLarge:'18px',headlineMedium:'16px',headlineSmall:'15px',titleLarge:'15px',titleMedium:'14px',titleSmall:'13px',bodyLarge:'13px',bodyMedium:'12px',bodySmall:'11px',labelLarge:'12px',labelMedium:'11px',labelSmall:'10px'};
+      const colorMap2 = {onBackground:'#E6E1E5',onSurface:'#E6E1E5',onSurfaceVariant:'#CAC4D0',primary:'#D0BCFF',secondary:'#CCC2DC',tertiary:'#EFB8C8',error:'#F2B8B5',outline:'#938F99'};
+      return `<div style="color:${colorMap2[p.color]||'#E6E1E5'};font-size:${sizeMap[p.style]||'13px'};font-weight:${p.style&&p.style.includes('headline')?'700':'400'}">${p.text||'نص'}</div>`;
+    }
+    case 'Button':
+      return `<div style="background:${p.enabled==='false'?'#3a3a4a':'#6650A4'};border-radius:20px;padding:${Math.max(6,8)}px 18px;color:${p.enabled==='false'?'#666':'#fff'};font-size:12px;font-weight:700;text-align:center;opacity:${p.enabled==='false'?'.5':'1'}">${p.text||'زر'}</div>`;
+    case 'TextField':
+      return `<div style="background:#2D2C37;border-radius:8px 8px 0 0;padding:10px;color:#ccc;font-size:11px;border-bottom:2px solid #6650A4">${p.label||'حقل النص'}</div>`;
+    case 'Card': {
+      const elev = Math.min(Math.max(parseInt(p.elevation)||4, 0), 24);
+      const shadowAlpha = (elev * 0.012).toFixed(2);
+      const childHtml = block.children.map(renderPreviewBlock).join('') || '📋 محتوى';
+      return `<div style="background:#2D2C37;border-radius:${p.shape==='None'?'0':p.shape==='Full'?'50px':p.shape==='Large'?'16px':'12px'};padding:13px;box-shadow:0 ${elev}px ${elev*3}px rgba(0,0,0,${shadowAlpha})">${childHtml}</div>`;
+    }
+    case 'Image': {
+      const sz = parseInt(p.size)||100;
+      return `<div class="preview-image-placeholder" style="width:${Math.min(sz,240)}px;height:${Math.min(sz,140)}px;">🖼</div>`;
+    }
+    case 'FAB':
+      return `<div class="preview-row-end"><div class="preview-fab">+</div></div>`;
+    case 'Chip':
+      return `<div><span class="preview-chip" style="background:${p.selected==='true'?'rgba(102,80,164,.5)':'rgba(102,80,164,.2)'}">${p.label||'شريحة'}</span></div>`;
+    case 'Divider':
+      return `<hr style="border:none;border-top:${p.thickness||1}px solid rgba(255,255,255,.15)">`;
+    case 'Switch': {
+      const on = p.checked === 'true';
+      return `<div class="preview-switch-row"><span style="font-size:12px;color:#E6E1E5">${p.label||'تفعيل'}</span><div class="preview-switch-thumb" style="background:${on?'#6650A4':'#49454F'}"><div style="width:14px;height:14px;border-radius:50%;background:#fff;position:absolute;top:2px;${on?'left:18px':'left:2px'};transition:left .2s"></div></div></div>`;
+    }
+    case 'Column': {
+      const arrMap = {Top:'flex-start',Bottom:'flex-end',Center:'center',SpaceBetween:'space-between',SpaceAround:'space-around',SpaceEvenly:'space-evenly'};
+      const alignMap = {Start:'flex-start',End:'flex-end',CenterHorizontally:'center'};
+      return `<div style="display:flex;flex-direction:column;gap:6px;padding:${parseInt(p.padding)||8}px;justify-content:${arrMap[p.verticalArrangement]||'flex-start'};align-items:${alignMap[p.horizontalAlignment]||'flex-start'}">${block.children.map(renderPreviewBlock).join('')||'<div style="color:rgba(255,255,255,.2);font-size:10px;padding:8px">فارغ</div>'}</div>`;
+    }
+    case 'Row': {
+      const arrMap2 = {Start:'flex-start',End:'flex-end',Center:'center',SpaceBetween:'space-between',SpaceAround:'space-around',SpaceEvenly:'space-evenly'};
+      return `<div style="display:flex;flex-direction:row;gap:6px;flex-wrap:wrap;justify-content:${arrMap2[p.horizontalArrangement]||'flex-start'}">${block.children.map(renderPreviewBlock).join('')}</div>`;
+    }
+    case 'Box':
+      return `<div style="position:relative;min-height:40px">${block.children.map(renderPreviewBlock).join('')}</div>`;
+    case 'Spacer':
+      return `<div style="height:${parseInt(p.height)||16}px;width:${p.fillMaxWidth==='true'?'100%':'auto'}"></div>`;
+    case 'LazyColumn': {
+      const cnt = Math.min(parseInt(p.itemCount)||5, 5);
+      const items = Array.from({length:cnt},(_,i)=>
+        block.children.length ? block.children.map(renderPreviewBlock).join('') :
+        `<div style="background:#2D2C37;border-radius:8px;padding:9px;font-size:11px;color:#ccc">عنصر ${i+1}</div>`
+      ).join('');
+      return `<div style="display:flex;flex-direction:column;gap:5px;padding:${parseInt(p.padding)||4}px">${items}${parseInt(p.itemCount)>cnt?`<div style="text-align:center;color:rgba(255,255,255,.25);font-size:9px">+${parseInt(p.itemCount)-cnt} عناصر</div>`:''}</div>`;
+    }
+    case 'remember': case 'mutableStateOf': case 'LaunchedEffect': case 'ViewModel':
+      return `<div style="border:1px dashed rgba(247,162,106,.4);border-radius:7px;padding:7px;font-size:10px;color:rgba(247,162,106,.8)">${BLOCK_DEFS[block.type]?.icon||'📦'} ${block.type}: ${p.varName||p.name||p.key||''}</div>`;
+    case 'onClick': case 'onValueChange': case 'navigate':
+      return `<div style="font-size:10px;color:rgba(247,106,138,.6)">👆 ${block.type} → ${p.action||p.route||''}</div>`;
+    case 'if': case 'forEach': case 'when':
+      return `<div style="border:1px dashed rgba(106,180,247,.4);border-radius:7px;padding:7px;font-size:10px;color:rgba(106,180,247,.8)">${BLOCK_DEFS[block.type]?.icon} ${block.type} (${Object.values(p)[0]||'...'})</div>`;
+    default:
+      return `<div style="border:1px dashed rgba(124,106,247,.3);border-radius:6px;padding:6px;font-size:10px;color:rgba(124,106,247,.8)">${block.type}</div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// PROJECTS
+// ═══════════════════════════════════════════════════════
+function loadProjects() {
+  try { const s = localStorage.getItem('kb_projects'); if (s) projects = JSON.parse(s); } catch(e){}
+  try { const s = localStorage.getItem('kb_custom_blocks'); if (s) { customBlocks = JSON.parse(s); renderCustomPalette(); } } catch(e){}
+}
+
+function saveProjects() {
+  try { localStorage.setItem('kb_projects', JSON.stringify(projects)); } catch(e){}
+}
+
+function saveCurrentProject() {
+  const idx = projects.findIndex(p => p.name === currentProject.name);
+  const data = { ...currentProject, blocks: JSON.parse(JSON.stringify(blocks)), savedAt: new Date().toLocaleString('ar') };
+  if (idx >= 0) projects[idx] = data; else projects.unshift(data);
+  saveProjects();
+  showToast('💾 تم حفظ المشروع', 'success');
+}
+
+function loadProject(name) {
+  const p = projects.find(pr => pr.name === name);
+  if (!p) return;
+  currentProject = { name: p.name, screenName: p.screenName, type: p.type };
+  blocks = JSON.parse(JSON.stringify(p.blocks || []));
+  blockIdCounter = getMaxId(blocks) + 1;
+  document.getElementById('currentProjectName').textContent = p.name;
+  renderBlocks(); updateHint(); livePreviewUpdate();
+  showTab('blocks');
+  showToast('📂 تم فتح: ' + p.name, 'success');
+}
+
+function getMaxId(list) {
+  let max = 0;
+  for (const b of list) {
+    const n = parseInt(b.id.replace('b',''))||0;
+    if (n > max) max = n;
+    const cm = getMaxId(b.children||[]);
+    if (cm > max) max = cm;
+  }
+  return max;
+}
+
+function deleteProject(name) {
+  projects = projects.filter(p => p.name !== name);
+  saveProjects(); renderProjectsList();
+  showToast('🗑 تم حذف: ' + name, 'error');
+}
+
+function renderProjectsList() {
+  const list = document.getElementById('projectsList');
+  if (!projects.length) {
+    list.innerHTML = `<div style="text-align:center;color:var(--text3);padding:36px 14px;font-size:12px;">لا توجد مشاريع بعد.<br>أنشئ مشروعك الأول! 🚀</div>`;
+    return;
+  }
+  list.innerHTML = projects.map(p => `
+    <div class="project-card ${p.name===currentProject.name?'active-project':''}" onclick="loadProject('${p.name.replace(/'/g,"\\'")}')">
+      <div class="project-card-actions">
+        <div class="project-action-btn" onclick="event.stopPropagation();exportProject('${p.name.replace(/'/g,"\\'")}')">📤</div>
+        <div class="project-action-btn del" onclick="event.stopPropagation();deleteProject('${p.name.replace(/'/g,"\\'")}')">🗑</div>
+      </div>
+      <div class="project-card-name">${p.name}</div>
+      <div class="project-card-meta">
+        <span>📄 ${p.screenName||'MainScreen'}.kt</span>
+        <span>🔧 ${p.type||'basic'}</span>
+        <span>⏰ ${p.savedAt||''}</span>
+      </div>
+      <div style="font-size:9.5px;color:var(--text3);margin-top:3px">${(p.blocks||[]).length} بلوكات</div>
+    </div>`).join('');
+}
+
+function newProject() {
+  document.getElementById('newProjectName').value = '';
+  document.getElementById('newScreenName').value = 'MainScreen';
+  selectedAppType = 'basic';
+  document.querySelectorAll('#appTypeToggle .toggle-btn').forEach(b => b.classList.toggle('selected', b.dataset.type==='basic'));
+  openModal('newProjectModal');
+}
+
+function confirmNewProject() {
+  const name   = document.getElementById('newProjectName').value.trim();
+  const screen = document.getElementById('newScreenName').value.trim() || 'MainScreen';
+  if (!name) { showToast('⚠️ أدخل اسم المشروع','error'); return; }
+  currentProject = { name, screenName: screen, type: selectedAppType };
+  blocks = []; selectedBlockId = null;
+  document.getElementById('currentProjectName').textContent = name;
+  renderBlocks(); updateHint();
+  closeModal('newProjectModal');
+  showTab('blocks');
+  showToast('✨ تم إنشاء: ' + name, 'success');
+}
+
+function selectAppType(el) {
+  document.querySelectorAll('#appTypeToggle .toggle-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedAppType = el.dataset.type;
+}
+
+// ═══════════════════════════════════════════════════════
+// EXPORT / IMPORT (Feature 6)
+// ═══════════════════════════════════════════════════════
+function exportProject(name) {
+  const p = projects.find(pr => pr.name === name);
+  if (!p) return;
+  const payload = JSON.stringify({ ...p, exportedBy: 'KotlinBlocks v2', exportedAt: new Date().toISOString() }, null, 2);
+  const blob = new Blob([payload], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = name.replace(/\s+/g,'-') + '.kb';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('📤 تم تصدير: ' + name, 'success');
+}
+
+function importProject(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.name || !data.blocks) throw new Error('ملف غير صالح');
+      // avoid duplicate names
+      let finalName = data.name;
+      let attempt = 1;
+      while (projects.find(p => p.name === finalName)) finalName = data.name + ` (${attempt++})`;
+      data.name = finalName;
+      delete data.exportedBy; delete data.exportedAt;
+      projects.unshift(data);
+      saveProjects();
+      renderProjectsList();
+      showToast('📥 تم استيراد: ' + finalName, 'success');
+    } catch(err) {
+      showToast('❌ ملف غير صالح', 'error');
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// also export currently-open project from topbar
+function exportCurrentProject() {
+  saveCurrentProject();
+  exportProject(currentProject.name);
+}
+
+// ═══════════════════════════════════════════════════════
+// CUSTOM BLOCKS (Feature 5 enhanced)
+// ═══════════════════════════════════════════════════════
+const colorMap = { 'custom-a':'#7c6af7','custom-b':'#4fd1a5','custom-c':'#f7a26a','custom-d':'#f76a8a','custom-e':'#6ab4f7','custom-f':'#c96af7' };
+
+function selectColor(el, colorKey) {
+  document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedColor = colorKey;
+}
+
+function createCustomBlock() {
+  const name        = document.getElementById('customName').value.trim();
+  const desc        = document.getElementById('customDesc').value.trim();
+  const icon        = document.getElementById('customIcon').value.trim() || '🔮';
+  const code        = document.getElementById('customCode').value.trim();
+  const previewHtml = document.getElementById('customPreviewHtml').value.trim();
+  const rawParams   = document.getElementById('customParams').value.trim();
+
+  if (!name) { showToast('⚠️ أدخل اسم البلوك','error'); return; }
+  if (BLOCK_DEFS[name]) { showToast('⚠️ الاسم محجوز','error'); return; }
+  if (customBlocks.find(b => b.name === name)) { showToast('⚠️ البلوك موجود','error'); return; }
+
+  const paramsList = rawParams ? rawParams.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const paramsObj  = {};
+  paramsList.forEach(p => paramsObj[p] = '');
+
+  customBlocks.push({ name, desc, icon, code, previewHtml, paramsList, cat:'custom', color:selectedColor, params:paramsObj, hasChildren:false, label:name });
+  try { localStorage.setItem('kb_custom_blocks', JSON.stringify(customBlocks)); } catch(e){}
+  renderCustomPalette();
+  renderCustomBlocksList();
+  ['customName','customDesc','customCode','customParams','customIcon','customPreviewHtml'].forEach(id => document.getElementById(id).value = '');
+  showToast('✨ تم إنشاء بلوك: ' + name, 'success');
+}
+
+function renderCustomPalette() {
+  const group = document.getElementById('customPaletteGroup');
+  group.innerHTML = '<div class="palette-label">مخصص</div>';
+  customBlocks.forEach(cb => {
+    const el = document.createElement('div');
+    el.className = 'palette-block pb-custom';
+    el.draggable = true;
+    el.dataset.block = cb.name;
+    el.innerHTML = `${cb.icon}<br>${cb.name.substring(0,8)}`;
+    el.addEventListener('dragstart', e => { dragBlockType = e.target.dataset.block; dragCanvasId = null; e.dataTransfer.effectAllowed = 'copy'; });
+    el.addEventListener('touchstart', handlePaletteTouchStart, { passive: false });
+    group.appendChild(el);
+  });
+}
+
+function renderCustomBlocksList() {
+  const list = document.getElementById('customBlocksList');
+  if (!customBlocks.length) {
+    list.innerHTML = `<div style="text-align:center;color:var(--text3);padding:18px;font-size:11px;">لا توجد بلوكات مخصصة بعد</div>`;
+    return;
+  }
+  list.innerHTML = customBlocks.map((cb,i) => `
+    <div class="custom-block-item">
+      <span class="custom-block-icon">${cb.icon}</span>
+      <div class="custom-block-info">
+        <div class="custom-block-name">${cb.name}</div>
+        <div class="custom-block-type">${cb.desc||'بلوك مخصص'}${cb.previewHtml?' · 🎨 معاينة مخصصة':''}</div>
+      </div>
+      <button class="block-del" onclick="deleteCustomBlock(${i})">✕</button>
+    </div>`).join('');
+}
+
+function deleteCustomBlock(i) {
+  customBlocks.splice(i,1);
+  try { localStorage.setItem('kb_custom_blocks', JSON.stringify(customBlocks)); } catch(e){}
+  renderCustomPalette(); renderCustomBlocksList();
+  showToast('🗑 تم حذف البلوك','error');
+}
+
+// ═══════════════════════════════════════════════════════
+// MODALS
+// ═══════════════════════════════════════════════════════
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  renderBlocks();
+  livePreviewUpdate();
+}
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
+});
+
+// ═══════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+loadProjects();
+updateHint();
+
+function addStarterDemo() {
+  blocks = [
+    { id:'b1', type:'Column', params:{verticalArrangement:'Top',horizontalAlignment:'Start',padding:'16'}, children:[
+      { id:'b2', type:'Text', params:{text:'مرحباً بك في KotlinBlocks 🎉',color:'primary',style:'headlineMedium'}, children:[] },
+      { id:'b3', type:'Spacer', params:{height:'16',fillMaxWidth:'false'}, children:[] },
+      { id:'b4', type:'Card', params:{elevation:'8',shape:'Medium'}, children:[
+        { id:'b5', type:'Text', params:{text:'هذا كارد Material 3 🃏',color:'onSurface',style:'bodyLarge'}, children:[] },
+        { id:'b8', type:'Spacer', params:{height:'8',fillMaxWidth:'false'}, children:[] },
+        { id:'b9', type:'Chip', params:{label:'M3 Chip',selected:'true'}, children:[] },
+      ]},
+      { id:'b6', type:'Spacer', params:{height:'12',fillMaxWidth:'false'}, children:[] },
+      { id:'b7', type:'Button', params:{text:'ابدأ الآن ▶',enabled:'true',shape:'RoundedCorner'}, children:[] },
+    ]},
+  ];
+  blockIdCounter = 20;
+  renderBlocks(); updateHint();
+}
+
+if (!projects.length) addStarterDemo();
+
+// Prevent canvas scroll hijack on touch drag
+document.getElementById('canvas').addEventListener('touchmove', e => {
+  if (touchGhost && touchGhost.style.display !== 'none') e.preventDefault();
+}, { passive: false });
+
+</script>
+</body>
+</html>
